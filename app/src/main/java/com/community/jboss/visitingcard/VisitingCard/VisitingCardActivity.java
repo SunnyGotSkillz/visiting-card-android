@@ -10,17 +10,33 @@ import android.support.design.widget.FloatingActionButton;
 import android.support.design.widget.Snackbar;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
+import android.widget.EditText;
+
 import com.community.jboss.visitingcard.Maps.MapsActivity;
 import com.community.jboss.visitingcard.R;
 import com.community.jboss.visitingcard.SettingsActivity;
+
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
+
 import de.hdodenhof.circleimageview.CircleImageView;
 
 public class VisitingCardActivity extends AppCompatActivity {
     CircleImageView profilePic;
+
+    APIInterface apiInterface;
+
+    EditText nameEditText;
+    EditText phoneEditText;
+    EditText emailEditText;
+
+    String imageUri = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -32,8 +48,40 @@ public class VisitingCardActivity extends AppCompatActivity {
         // TODO: Add profileImage, Name, Email, PhoneNumber, Github, LinkedIn & Twitter Fields.
 
         // TODO: Clicking the ImageView should invoke an implicit intent to take an image using camera / pick an image from the Gallery.
+        nameEditText = findViewById(R.id.nameEditText);
+        phoneEditText = findViewById(R.id.phoneEditText);
+        emailEditText = findViewById(R.id.emailEditText);
 
         profilePic = findViewById(R.id.profilePic);
+
+        apiInterface = APIClient.getClient().create(APIInterface.class);
+
+        Call<VisitingCard> call = apiInterface.doGetVisitingCard();
+        call.enqueue(new Callback<VisitingCard>() {
+            @Override
+            public void onResponse(Call<VisitingCard> call, Response<VisitingCard> response) {
+
+
+                Log.d("TAG",response.code()+"");
+
+                VisitingCard resource = response.body();
+                String name = resource.name;
+                String email = resource.email;
+                String phone = resource.phone;
+
+                Log.i("Response", name + " " + email + " " + phone);
+
+                nameEditText.setText(name);
+                emailEditText.setText(email);
+                phoneEditText.setText(phone);
+
+            }
+
+            @Override
+            public void onFailure(Call<VisitingCard> call, Throwable t) {
+                call.cancel();
+            }
+        });
 
         profilePic.setOnClickListener(new View.OnClickListener() {
             public void onClick(View v) {
@@ -51,7 +99,7 @@ public class VisitingCardActivity extends AppCompatActivity {
                         .setNegativeButton("GALLERY", new DialogInterface.OnClickListener() {
                             @Override
                             public void onClick(DialogInterface dialogInterface, int i) {
-                                Intent pickPhoto = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                                Intent pickPhoto = new Intent(Intent.ACTION_OPEN_DOCUMENT, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
                                 startActivityForResult(pickPhoto, 1);
                             }
                         })
@@ -78,14 +126,15 @@ public class VisitingCardActivity extends AppCompatActivity {
         });
     }
 
+
     protected void onActivityResult(int requestCode, int resultCode, Intent imageReturnedIntent) {
         super.onActivityResult(requestCode, resultCode, imageReturnedIntent);
 
         switch(requestCode) {
             case 0:
-                if(resultCode == RESULT_OK){
-                    Bitmap selectedImage = (Bitmap) imageReturnedIntent.getExtras().get("data");
-                    profilePic.setImageBitmap(selectedImage);
+                if(resultCode == RESULT_OK) {
+                    Bitmap bitmap = (Bitmap) imageReturnedIntent.getExtras().get("data");
+                    profilePic.setImageBitmap(bitmap);
                 }
 
                 break;
@@ -93,10 +142,33 @@ public class VisitingCardActivity extends AppCompatActivity {
                 if(resultCode == RESULT_OK){
                     Uri selectedImage = imageReturnedIntent.getData();
                     profilePic.setImageURI(selectedImage);
+                    imageUri = selectedImage.toString();
                 }
                 break;
 
         }
+    }
+
+    public void uploadData(View view) {
+        VisitingCard card = new VisitingCard();
+        card.name = nameEditText.getText().toString();
+        card.email = emailEditText.getText().toString();
+        card.phone = phoneEditText.getText().toString();
+        card.picture = imageUri;
+        Call<VisitingCard> call = apiInterface.createVisitingCard(card);
+        call.enqueue(new Callback<VisitingCard>() {
+            @Override
+            public void onResponse(Call<VisitingCard> call, Response<VisitingCard> response) {
+                Log.i("Status", "Post successful");
+                Log.d("Response", response.body().toString());
+            }
+
+            @Override
+            public void onFailure(Call<VisitingCard> call, Throwable t) {
+                call.cancel();
+            }
+        });
+
     }
 
     @Override
